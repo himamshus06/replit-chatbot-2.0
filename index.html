@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemma 3 Chat with Image Support</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .chat-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: #2d3748;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .chat-header h1 {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .chat-messages {
+            height: 500px;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f7fafc;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 16px;
+            border-radius: 12px;
+            max-width: 85%;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            background: #4299e1;
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 4px;
+        }
+
+        .bot-message {
+            background: white;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .image-preview {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 8px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .chat-input {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #cbd5e0;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        #messageInput:focus {
+            border-color: #4299e1;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #sendButton {
+            padding: 12px 24px;
+            background: #4299e1;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        #sendButton:hover {
+            background: #3182ce;
+        }
+
+        #sendButton:disabled {
+            background: #a0aec0;
+            cursor: not-allowed;
+        }
+
+        #imageUpload {
+            display: none;
+        }
+
+        .upload-button {
+            padding: 10px 16px;
+            background: #48bb78;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            font-size: 12px;
+            text-align: center;
+        }
+
+        .upload-button:hover {
+            background: #38a169;
+        }
+
+        .typing-indicator {
+            display: none;
+            padding: 12px 16px;
+            color: #718096;
+            font-style: italic;
+        }
+
+        .typing-indicator.show {
+            display: block;
+        }
+
+        .image-indicator {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .file-info {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        /* Response Formatting Styles */
+        .formatted-response {
+            line-height: 1.6;
+        }
+
+        .formatted-response h1,
+        .formatted-response h2,
+        .formatted-response h3 {
+            margin: 16px 0 8px 0;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .formatted-response h1 {
+            font-size: 1.4em;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 4px;
+        }
+
+        .formatted-response h2 {
+            font-size: 1.2em;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 2px;
+        }
+
+        .formatted-response h3 {
+            font-size: 1.1em;
+        }
+
+        .formatted-response p {
+            margin: 8px 0;
+        }
+
+        .formatted-response ul,
+        .formatted-response ol {
+            margin: 8px 0;
+            padding-left: 24px;
+        }
+
+        .formatted-response li {
+            margin: 4px 0;
+        }
+
+        .formatted-response code {
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 1px solid #e2e8f0;
+        }
+
+        .formatted-response pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 12px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .formatted-response blockquote {
+            border-left: 4px solid #4299e1;
+            padding-left: 16px;
+            margin: 12px 0;
+            color: #4a5568;
+            font-style: italic;
+        }
+
+        .formatted-response table {
+            border-collapse: collapse;
+            margin: 12px 0;
+            width: 100%;
+        }
+
+        .formatted-response th,
+        .formatted-response td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .formatted-response th {
+            background: #f7fafc;
+            font-weight: 600;
+        }
+
+        .formatted-response tr:nth-child(even) {
+            background: #f7fafc;
+        }
+
+        .response-section {
+            margin: 12px 0;
+            padding: 12px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border-left: 4px solid #4299e1;
+        }
+
+        .info-box {
+            background: #ebf8ff;
+            border: 1px solid #bee3f8;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        .warning-box {
+            background: #fffaf0;
+            border: 1px solid #feebc8;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        .tip-box {
+            background: #f0fff4;
+            border: 1px solid #c6f6d5;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+        }
+
+        .inline-code {
+            background: #f7fafc;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e53e3e;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>Gemma 3 Chat with Image Support</h1>
+            <p>Powered by Ollama - Upload images and ask questions!</p>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                <div class="formatted-response">
+                    <h2>👋 Hello! I'm Gemma 3</h2>
+                    <p>I'm your AI assistant with <strong>vision capabilities</strong>. You can:</p>
+                    <ul>
+                        <li>💬 Ask me questions in text</li>
+                        <li>📷 Upload images and ask me about them</li>
+                        <li>🔍 Get detailed analysis and explanations</li>
+                    </ul>
+                    <div class="tip-box">
+                        <strong>Tip:</strong> Use the upload button to send me images, and I'll help you understand what's in them!
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="typing-indicator" id="typingIndicator">
+            <div class="formatted-response">
+                <em>Gemma is analyzing your request...</em>
+            </div>
+        </div>
+        
+        <div class="chat-input">
+            <div class="input-group">
+                <textarea id="messageInput" placeholder="Type your message here... You can also upload an image and ask questions about it!" autocomplete="off"></textarea>
+                <div class="button-group">
+                    <button id="sendButton">Send</button>
+                    <input type="file" id="imageUpload" accept="image/*">
+                    <button class="upload-button" id="uploadButton">📷 Upload Image</button>
+                </div>
+            </div>
+            <div id="imagePreview"></div>
+        </div>
+    </div>
+
+    <script>
+        class ResponseFormatter {
+            static formatResponse(text) {
+                // If the response is already formatted, return as is
+                if (text.includes('<') && text.includes('>')) {
+                    return text;
+                }
+
+                let formattedText = text;
+
+                // Convert markdown-like syntax to HTML
+                formattedText = this.convertHeaders(formattedText);
+                formattedText = this.convertCodeBlocks(formattedText);
+                formattedText = this.convertInlineCode(formattedText);
+                formattedText = this.convertLists(formattedText);
+                formattedText = this.convertBlockquotes(formattedText);
+                formattedText = this.convertBoldItalic(formattedText);
+                formattedText = this.convertLinks(formattedText);
+                formattedText = this.convertSections(formattedText);
+                formattedText = this.convertSpecialBlocks(formattedText);
+
+                return `<div class="formatted-response">${formattedText}</div>`;
+            }
+
+            static convertHeaders(text) {
+                return text
+                    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+                    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+                    .replace(/^### (.*$)/gim, '<h3>$1</h3>');
+            }
+
+            static convertCodeBlocks(text) {
+                return text.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+            }
+
+            static convertInlineCode(text) {
+                return text.replace(/`([^`]+)`/g, '<code>$1</code>');
+            }
+
+            static convertLists(text) {
+                // Convert unordered lists
+                text = text.replace(/^\* (.*$)/gim, '<li>$1</li>');
+                text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+                
+                // Convert numbered lists
+                text = text.replace(/^\d+\. (.*$)/gim, '<li>$1</li>');
+                text = text.replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>');
+                
+                return text;
+            }
+
+            static convertBlockquotes(text) {
+                return text.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
+            }
+
+            static convertBoldItalic(text) {
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/__(.*?)__/g, '<strong>$1</strong>')
+                    .replace(/_(.*?)_/g, '<em>$1</em>');
+            }
+
+            static convertLinks(text) {
+                return text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            }
+
+            static convertSections(text) {
+                return text.replace(/\[section\]([\s\S]*?)\[\/section\]/g, '<div class="response-section">$1</div>');
+            }
+
+            static convertSpecialBlocks(text) {
+                text = text.replace(/\[info\]([\s\S]*?)\[\/info\]/g, '<div class="info-box">$1</div>');
+                text = text.replace(/\[warning\]([\s\S]*?)\[\/warning\]/g, '<div class="warning-box">$1</div>');
+                text = text.replace(/\[tip\]([\s\S]*?)\[\/tip\]/g, '<div class="tip-box">$1</div>');
+                return text;
+            }
+        }
+
+        class GemmaChat {
+            constructor() {
+                this.chatMessages = document.getElementById('chatMessages');
+                this.messageInput = document.getElementById('messageInput');
+                this.sendButton = document.getElementById('sendButton');
+                this.typingIndicator = document.getElementById('typingIndicator');
+                this.imageUpload = document.getElementById('imageUpload');
+                this.uploadButton = document.getElementById('uploadButton');
+                this.imagePreview = document.getElementById('imagePreview');
+                
+                this.currentImage = null;
+                this.currentImageData = null;
+                
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                this.sendButton.addEventListener('click', () => this.sendMessage());
+                this.messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        this.sendMessage();
+                    }
+                });
+
+                this.uploadButton.addEventListener('click', () => this.imageUpload.click());
+                this.imageUpload.addEventListener('change', (e) => this.handleImageUpload(e));
+            }
+
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (!file.type.startsWith('image/')) {
+                    alert('Please select an image file (JPEG, PNG, etc.)');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Image size should be less than 10MB');
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.currentImage = file;
+                    this.currentImageData = e.target.result;
+                    
+                    this.imagePreview.innerHTML = `
+                        <div style="margin-top: 10px;">
+                            <img src="${this.currentImageData}" class="image-preview" alt="Preview">
+                            <div class="file-info">
+                                ${file.name} (${Math.round(file.size / 1024)} KB)
+                                <button onclick="gemmaChat.removeImage()" style="margin-left: 10px; background: #e53e3e; color: white; border: none; padding: 2px 6px; border-radius: 3px; cursor: pointer;">Remove</button>
+                            </div>
+                        </div>
+                    `;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            removeImage() {
+                this.currentImage = null;
+                this.currentImageData = null;
+                this.imagePreview.innerHTML = '';
+                this.imageUpload.value = '';
+            }
+
+            async sendMessage() {
+                const message = this.messageInput.value.trim();
+                const hasImage = this.currentImageData !== null;
+
+                if (!message && !hasImage) {
+                    alert('Please enter a message or upload an image');
+                    return;
+                }
+
+                this.addMessage(message, 'user', hasImage);
+                this.messageInput.value = '';
+                this.sendButton.disabled = true;
+                this.showTypingIndicator();
+
+                try {
+                    const response = await this.getGemmaResponse(message, hasImage);
+                    this.addFormattedMessage(response, 'bot');
+                } catch (error) {
+                    console.error('Error:', error);
+                    this.addFormattedMessage('Sorry, I encountered an error. Please try again.', 'bot');
+                } finally {
+                    this.hideTypingIndicator();
+                    this.sendButton.disabled = false;
+                    this.removeImage();
+                    this.messageInput.focus();
+                }
+            }
+
+            async getGemmaResponse(message, hasImage) {
+                if (hasImage) {
+                    return await this.getVisionResponse(message);
+                } else {
+                    return await this.getTextResponse(message);
+                }
+            }
+
+            async getTextResponse(message) {
+                const response = await fetch('http://localhost:11434/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: 'gemma3',
+                        prompt: message,
+                        stream: false
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.response || 'No response received';
+            }
+
+            async getVisionResponse(message) {
+                const base64Data = this.currentImageData.split(',')[1];
+                
+                const requestBody = {
+                    model: 'gemma3',
+                    prompt: message,
+                    images: [base64Data],
+                    stream: false
+                };
+
+                const response = await fetch('http://localhost:11434/api/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                return data.response || 'No response received';
+            }
+
+            addMessage(text, sender, hasImage = false) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}-message`;
+                
+                let messageContent = '';
+                
+                if (sender === 'user' && hasImage) {
+                    messageContent = `
+                        <div>${text || 'Analyze this image:'}</div>
+                        <img src="${this.currentImageData}" class="image-preview" alt="Uploaded image">
+                        <div class="image-indicator">📷 Image attached</div>
+                    `;
+                } else {
+                    messageContent = text;
+                }
+                
+                messageDiv.innerHTML = messageContent;
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            addFormattedMessage(text, sender) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `message ${sender}-message`;
+                
+                const formattedContent = ResponseFormatter.formatResponse(text);
+                messageDiv.innerHTML = formattedContent;
+                this.chatMessages.appendChild(messageDiv);
+                this.scrollToBottom();
+            }
+
+            showTypingIndicator() {
+                this.typingIndicator.classList.add('show');
+                this.scrollToBottom();
+            }
+
+            hideTypingIndicator() {
+                this.typingIndicator.classList.remove('show');
+            }
+
+            scrollToBottom() {
+                this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+            }
+        }
+
+        // Initialize the chat when the page loads
+        let gemmaChat;
+        document.addEventListener('DOMContentLoaded', () => {
+            gemmaChat = new GemmaChat();
+        });
+    </script>
+</body>
+</html>
